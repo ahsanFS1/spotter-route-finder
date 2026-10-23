@@ -5,13 +5,16 @@ from dataclasses import dataclass
 
 from .models import RiskLevel, RouteMetrics
 
-_CRITERIA = (
-    "no travel segments",
-    "severe miles",
-    "high miles",
-    "average risk",
-    "travel time",
-)
+def _describe(index: int, winner, other) -> str:
+    """e.g. 'Fewest Severe miles (0 vs 25)', with the winner's value first."""
+    if index == 0:
+        return "Avoids the No Travel conditions on the other route"
+    if index == 3:
+        return f"Lowest average risk ({winner:.2f} vs {other:.2f})"
+    if index == 4:
+        return f"Shortest travel time ({winner / 3600:.1f} h vs {other / 3600:.1f} h)"
+    name = "Severe" if index == 1 else "High"
+    return f"Fewest {name} miles ({winner:g} vs {other:g})"
 
 
 def sort_key(m: RouteMetrics) -> tuple:
@@ -46,7 +49,7 @@ def rank_routes(routes: dict[str, RouteMetrics]) -> Recommendation:
         return Recommendation(ordered, best, "Only one route was available.")
     runner_up = ordered[1]
     a, b = sort_key(routes[best]), sort_key(routes[runner_up])
-    for name, x, y in zip(_CRITERIA, a, b):
+    for i, (x, y) in enumerate(zip(a, b)):
         if x != y:
-            return Recommendation(ordered, best, f"Best on {name} compared with the next route.")
+            return Recommendation(ordered, best, f"{_describe(i, x, y)} compared with the next route.")
     return Recommendation(ordered, best, "Routes are equivalent; chose the first.")

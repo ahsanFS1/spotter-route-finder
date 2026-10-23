@@ -20,6 +20,17 @@ export function routesToGeoJSON(analysis: Analysis | null): Collection {
   return { type: 'FeatureCollection', features }
 }
 
+export function routeLabelsToGeoJSON(analysis: Analysis | null): Collection {
+  return {
+    type: 'FeatureCollection',
+    features: (analysis?.routes ?? []).map((r) => ({
+      type: 'Feature',
+      properties: { routeId: r.id, label: r.label },
+      geometry: { type: 'Point', coordinates: r.label_at },
+    })),
+  }
+}
+
 export function checkpointsToGeoJSON(analysis: Analysis | null): Collection {
   const features: Feature[] = []
   for (const route of analysis?.routes ?? []) {

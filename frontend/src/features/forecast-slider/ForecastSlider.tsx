@@ -14,7 +14,9 @@ const STEP_MS = 450
 
 export function ForecastSlider({ hours, hour, playing, onHour, onPlaying }: Props) {
   const current = useRef(hour)
-  current.current = hour
+  useEffect(() => {
+    current.current = hour
+  }, [hour])
 
   useEffect(() => {
     if (!playing) return

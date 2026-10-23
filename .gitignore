@@ -17,3 +17,5 @@ dist/
 
 # assessment brief
 fs-assessment-spotter.pdf
+
+staticfiles/

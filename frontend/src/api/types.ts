@@ -50,7 +50,10 @@ export interface Route {
   distance_mi: number
   duration_s: number
   arrival: string
-  geometry: [number, number][]
+  label_at: [number, number]
+  start: [number, number]
+  end: [number, number]
+  bounds: [number, number, number, number] // west, south, east, north
   segments: RouteSegment[]
   metrics: RouteMetrics
   checkpoints: Checkpoint[]

@@ -1,13 +1,17 @@
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useEffect, useRef, useState } from 'react'
 import type { Analysis, Heatmap } from '../../api/types'
 import { formatDateTime } from '../../lib/format'
 import { levelLabel } from '../../lib/risk'
 import {
-  checkpointsToGeoJSON, HEAT_COLOR_RAMP, HEAT_RADIUS, heatDotColor, heatDotOpacity, heatmapToGeoJSON,
+  checkpointsToGeoJSON, HEAT_COLOR_RAMP, routeLabelsToGeoJSON, HEAT_RADIUS, heatDotColor, heatDotOpacity, heatmapToGeoJSON,
   heatWeight, routesToGeoJSON,
 } from './layers'
+
+// Vite bundles the worker with its shared chunk; MapLibre cannot resolve it on its own.
+maplibregl.setWorkerUrl(workerUrl)
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 const US_CENTER: [number, number] = [-96, 38.5]
@@ -45,7 +49,9 @@ export function MapView({ analysis, selectedId, onSelect, heatmap, hour, showHea
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markers = useRef<maplibregl.Marker[]>([])
   const onSelectRef = useRef(onSelect)
-  onSelectRef.current = onSelect
+  useEffect(() => {
+    onSelectRef.current = onSelect
+  }, [onSelect])
   const [ready, setReady] = useState(false)
   const frame = useRef(0)
 
@@ -58,7 +64,7 @@ export function MapView({ analysis, selectedId, onSelect, heatmap, hour, showHea
 
     map.on('load', () => {
       const empty = { type: 'FeatureCollection', features: [] } as GeoJSON.FeatureCollection
-      for (const id of ['heat', 'routes', 'checkpoints']) map.addSource(id, { type: 'geojson', data: empty })
+      for (const id of ['heat', 'routes', 'checkpoints', 'route-labels']) map.addSource(id, { type: 'geojson', data: empty })
       const lineLayout = { 'line-cap': 'round', 'line-join': 'round' } as const
 
       map.addLayer({
@@ -72,6 +78,11 @@ export function MapView({ analysis, selectedId, onSelect, heatmap, hour, showHea
       map.addLayer({ id: 'routes-other', type: 'line', source: 'routes', layout: lineLayout, filter: ['!=', ['get', 'routeId'], ''], paint: { 'line-color': ['get', 'color'], 'line-width': 4, 'line-opacity': 0.55 } })
       map.addLayer({ id: 'routes-casing', type: 'line', source: 'routes', layout: lineLayout, filter: ['==', ['get', 'routeId'], ''], paint: { 'line-color': '#ffffff', 'line-width': 10 } })
       map.addLayer({ id: 'routes-selected', type: 'line', source: 'routes', layout: lineLayout, filter: ['==', ['get', 'routeId'], ''], paint: { 'line-color': ['get', 'color'], 'line-width': 6 } })
+      map.addLayer({
+        id: 'route-labels', type: 'symbol', source: 'route-labels',
+        layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Bold'], 'text-size': 12, 'text-offset': [0, -1.2], 'text-allow-overlap': true },
+        paint: { 'text-color': '#1b2430', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      })
       map.addLayer({
         id: 'checkpoints', type: 'circle', source: 'checkpoints', filter: ['==', ['get', 'routeId'], ''],
         paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 3, 8, 6, 12, 8], 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' },
@@ -112,19 +123,18 @@ export function MapView({ analysis, selectedId, onSelect, heatmap, hour, showHea
     if (!map || !ready) return
     ;(map.getSource('routes') as maplibregl.GeoJSONSource).setData(routesToGeoJSON(analysis))
     ;(map.getSource('checkpoints') as maplibregl.GeoJSONSource).setData(checkpointsToGeoJSON(analysis))
+    ;(map.getSource('route-labels') as maplibregl.GeoJSONSource).setData(routeLabelsToGeoJSON(analysis))
 
     markers.current.forEach((m) => m.remove())
     markers.current = []
     const first = analysis?.routes[0]
     if (!analysis || !first) return
-    const start = first.geometry[0]
-    const end = first.geometry[first.geometry.length - 1]
     markers.current = [
-      new maplibregl.Marker({ color: '#1f2933' }).setLngLat(start).addTo(map),
-      new maplibregl.Marker({ color: '#0b5d8f' }).setLngLat(end).addTo(map),
+      new maplibregl.Marker({ color: '#1f2933' }).setLngLat(first.start).addTo(map),
+      new maplibregl.Marker({ color: '#0b5d8f' }).setLngLat(first.end).addTo(map),
     ]
     const bounds = new maplibregl.LngLatBounds()
-    analysis.routes.forEach((r) => r.geometry.forEach((c) => bounds.extend(c)))
+    analysis.routes.forEach((r) => bounds.extend([[r.bounds[0], r.bounds[1]], [r.bounds[2], r.bounds[3]]]))
     map.fitBounds(bounds, { padding: 56, duration: 700 })
   }, [analysis, ready])
 

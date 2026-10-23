@@ -53,6 +53,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
 WHITENOISE_ROOT = FRONTEND_DIST if FRONTEND_DIST.exists() else None
 WHITENOISE_INDEX_FILE = True
+WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: url.startswith("/assets/")  # Vite hashes these names
 
 USE_TZ = True
 TIME_ZONE = "UTC"

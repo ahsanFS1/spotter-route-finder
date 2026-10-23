@@ -90,28 +90,29 @@ def metrics(severe=0.0, high=0.0, avg=0.0, dur=1000, no_travel=False):
 
 def test_fewest_severe_wins_over_everything():
     rec = rank_routes({"a": metrics(severe=10, dur=100), "b": metrics(severe=0, high=90, avg=2, dur=9000)})
-    assert rec.recommended_id == "b" and "severe" in rec.reason
+    assert rec.recommended_id == "b" and rec.reason.startswith("Fewest Severe miles (0 vs 10)")
 
 
 def test_high_miles_break_severe_tie():
     rec = rank_routes({"a": metrics(high=30), "b": metrics(high=10, dur=9999)})
-    assert rec.recommended_id == "b" and "high" in rec.reason
+    assert rec.recommended_id == "b" and rec.reason.startswith("Fewest High miles (10 vs 30)")
 
 
 def test_average_risk_then_duration():
     assert rank_routes({"a": metrics(avg=1.2), "b": metrics(avg=0.8, dur=9999)}).recommended_id == "b"
     rec = rank_routes({"a": metrics(avg=1.0, dur=2000), "b": metrics(avg=1.0, dur=1500)})
-    assert rec.recommended_id == "b" and "time" in rec.reason
+    assert rec.recommended_id == "b" and rec.reason.startswith("Shortest travel time")
 
 
 def test_rounding_lets_near_ties_fall_through():
     rec = rank_routes({"a": metrics(severe=10.01, dur=500), "b": metrics(severe=10.04, dur=900)})
-    assert rec.recommended_id == "a" and "time" in rec.reason
+    assert rec.recommended_id == "a" and rec.reason.startswith("Shortest travel time")
 
 
 def test_no_travel_routes_rank_last_and_all_blocked_gives_no_recommendation():
     rec = rank_routes({"a": metrics(no_travel=True), "b": metrics(severe=50)})
     assert rec.recommended_id == "b" and rec.ordered_ids == ["b", "a"]
+    assert rec.reason.startswith("Avoids the No Travel")
     blocked = rank_routes({"a": metrics(no_travel=True), "b": metrics(no_travel=True)})
     assert blocked.recommended_id is None
 

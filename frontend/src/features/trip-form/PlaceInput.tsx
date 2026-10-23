@@ -21,13 +21,11 @@ export function PlaceInput({ label, value, onChange, error }: Props) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'empty' | 'failed'>('idle')
   const box = useRef<HTMLDivElement>(null)
 
+  const query = text.trim()
+  const searching = !value && query.length >= MIN_CHARS
+
   useEffect(() => {
-    const query = text.trim()
-    if (value || query.length < MIN_CHARS) {
-      setOptions([])
-      setStatus('idle')
-      return
-    }
+    if (!searching) return
     const controller = new AbortController()
     const timer = setTimeout(async () => {
       setStatus('loading')
@@ -44,7 +42,7 @@ export function PlaceInput({ label, value, onChange, error }: Props) {
       clearTimeout(timer)
       controller.abort()
     }
-  }, [text, value])
+  }, [query, searching])
 
   useEffect(() => {
     const close = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false)
@@ -59,22 +57,24 @@ export function PlaceInput({ label, value, onChange, error }: Props) {
   }
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (!open || !options.length) return
+    if (!open || !shownOptions.length) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActive((i) => (i + 1) % options.length)
+      setActive((i) => (i + 1) % shownOptions.length)
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setActive((i) => (i <= 0 ? options.length - 1 : i - 1))
+      setActive((i) => (i <= 0 ? shownOptions.length - 1 : i - 1))
     } else if (e.key === 'Enter' && active >= 0) {
       e.preventDefault()
-      choose(options[active])
+      choose(shownOptions[active])
     } else if (e.key === 'Escape') {
       setOpen(false)
     }
   }
 
-  const showList = open && !value && (options.length > 0 || status !== 'idle')
+  const shownOptions = searching ? options : []
+  const shownStatus = searching ? status : 'idle'
+  const showList = open && !value && (shownOptions.length > 0 || shownStatus !== 'idle')
 
   return (
     <div className="field" ref={box}>
@@ -100,7 +100,7 @@ export function PlaceInput({ label, value, onChange, error }: Props) {
       />
       {showList && (
         <ul className="suggestions" id={`${id}-list`} role="listbox">
-          {options.map((o, i) => (
+          {shownOptions.map((o, i) => (
             <li
               key={`${o.lat},${o.lng}`}
               id={`${id}-opt-${i}`}
@@ -115,9 +115,9 @@ export function PlaceInput({ label, value, onChange, error }: Props) {
               {o.label}
             </li>
           ))}
-          {status === 'loading' && <li className="note">Searching…</li>}
-          {status === 'empty' && <li className="note">No matches in the US, Canada or Mexico.</li>}
-          {status === 'failed' && <li className="note">Search is unavailable. Try again in a moment.</li>}
+          {shownStatus === 'loading' && <li className="note">Searching…</li>}
+          {shownStatus === 'empty' && <li className="note">No matches in the US, Canada or Mexico.</li>}
+          {shownStatus === 'failed' && <li className="note">Search is unavailable. Try again in a moment.</li>}
         </ul>
       )}
       {error && <p className="error">{error}</p>}

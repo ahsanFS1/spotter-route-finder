@@ -6,7 +6,7 @@ services:
     buildCommand: |
       cd frontend && npm ci && npm run build && cd ..
       pip install -r backend/requirements.txt
-      cd backend && python manage.py collectstatic --noinput
+      cd backend && python -m whitenoise.compress ../frontend/dist && python manage.py collectstatic --noinput
     startCommand: cd backend && gunicorn config.wsgi --workers 2 --threads 4 --timeout 90 --bind 0.0.0.0:$PORT
     healthCheckPath: /api/health/
     envVars:

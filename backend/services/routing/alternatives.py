@@ -8,7 +8,13 @@ from .base import RouteOption, RoutingProvider
 
 MAX_DISTANCE_RATIO = 1.5
 MAX_OVERLAP = 0.9
-VIA_OFFSET_FRACTIONS = (0.12, 0.25)
+MAX_BACKTRACK = 0.02
+# (position along the straight line, sideways offset as a fraction of its length), tried in rounds
+VIA_ROUNDS = (
+    ((0.5, 0.12),),
+    ((0.35, 0.18), (0.65, 0.18)),
+    ((0.5, 0.28), (0.25, 0.12), (0.75, 0.12)),
+)
 LABELS = ("Fastest", "Alternative 1", "Alternative 2")
 
 
@@ -27,11 +33,27 @@ def _overlap(a: set, b: set) -> float:
     return len(a & b) / max(1, min(len(a), len(b)))
 
 
-def _via_points(origin: LatLng, dest: LatLng, fraction: float) -> list[LatLng]:
-    mid = ((origin[0] + dest[0]) / 2, (origin[1] + dest[1]) / 2)
+def _backtracks(route: RouteOption, step_mi: float = 0.5) -> float:
+    """Share of the route that revisits ground it already covered (a detour up a dead end and back)."""
+    cumulative = cumulative_miles(route.points)
+    total = cumulative[-1]
+    count = max(2, int(total / step_mi))
+    first_seen: dict[tuple[int, int], int] = {}
+    revisits = 0
+    for i in range(count + 1):
+        lat, lng = point_at_mile(route.points, cumulative, total * i / count)
+        cell = (round(lat * 100), round(lng * 100))
+        if cell in first_seen and i - first_seen[cell] > 6:  # more than ~3 miles later
+            revisits += 1
+        first_seen.setdefault(cell, i)
+    return revisits / (count + 1)
+
+
+def _via_points(origin: LatLng, dest: LatLng, along: float, fraction: float) -> list[LatLng]:
+    anchor = ((origin[0] + (dest[0] - origin[0]) * along), (origin[1] + (dest[1] - origin[1]) * along))
     offset = haversine_mi(origin, dest) * fraction
     heading = bearing_deg(origin, dest)
-    return [destination_point(mid, (heading + 90) % 360, offset), destination_point(mid, (heading - 90) % 360, offset)]
+    return [destination_point(anchor, (heading + 90) % 360, offset), destination_point(anchor, (heading - 90) % 360, offset)]
 
 
 def build_routes(provider: RoutingProvider, origin: LatLng, dest: LatLng, want: int = 3):
@@ -41,11 +63,11 @@ def build_routes(provider: RoutingProvider, origin: LatLng, dest: LatLng, want: 
     if not candidates:
         return [], ["No drivable route was found between these locations."]
 
-    for fraction in VIA_OFFSET_FRACTIONS:
+    for round_ in VIA_ROUNDS:
         if len(_dedupe(candidates, candidates[0].distance_mi * MAX_DISTANCE_RATIO)) >= want:
             break
-        vias = _via_points(origin, dest, fraction)
-        with ThreadPoolExecutor(max_workers=len(vias)) as pool:
+        vias = [v for along, fraction in round_ for v in _via_points(origin, dest, along, fraction)]
+        with ThreadPoolExecutor(max_workers=min(4, len(vias))) as pool:
             results = list(pool.map(lambda v: _safe_route(provider, [origin, v, dest]), vias))
         for found in results:
             candidates.extend(found)
@@ -69,7 +91,7 @@ def _dedupe(routes: list[RouteOption], max_distance_mi: float) -> list[RouteOpti
     kept: list[RouteOption] = []
     kept_cells: list[set] = []
     for route in sorted(routes, key=lambda r: r.duration_s):
-        if route.distance_mi > max_distance_mi:
+        if route.distance_mi > max_distance_mi or _backtracks(route) > MAX_BACKTRACK:
             continue
         cells = _cells(route)
         if any(_overlap(cells, other) > MAX_OVERLAP for other in kept_cells):

@@ -3,7 +3,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from domain.geo import LatLng, cumulative_miles, slice_polyline, thin_polyline
+from domain.geo import LatLng, cumulative_miles, point_at_mile, slice_polyline, thin_polyline
 from domain.models import Checkpoint, RiskLevel
 from domain.ranking import rank_routes
 from domain.rules import classify
@@ -91,6 +91,11 @@ def analyze_trip(trip: TripRequest, routing, weather, now: datetime | None = Non
     }
 
 
+def _midpoint(points, cumulative) -> list[float]:
+    lat, lng = point_at_mile(points, cumulative, cumulative[-1] / 2)
+    return [lng, lat]
+
+
 def _route_payload(route_id, label, option, points, checkpoints, m, departure) -> dict:
     cumulative = cumulative_miles(points)
     segments = []
@@ -104,7 +109,13 @@ def _route_payload(route_id, label, option, points, checkpoints, m, departure) -
         "distance_mi": round(option.distance_mi, 1),
         "duration_s": round(option.duration_s),
         "arrival": (departure + timedelta(seconds=option.duration_s)).astimezone(timezone.utc).isoformat(),
-        "geometry": [[lng, lat] for lat, lng in points],
+        "label_at": _midpoint(points, cumulative),
+        "start": [points[0][1], points[0][0]],
+        "end": [points[-1][1], points[-1][0]],
+        "bounds": [
+            min(p[1] for p in points), min(p[0] for p in points),
+            max(p[1] for p in points), max(p[0] for p in points),
+        ],
         "segments": segments,
         "metrics": {
             "miles_by_level": {lvl.name.lower(): round(m.miles_by_level[lvl], 1) for lvl in RiskLevel},
