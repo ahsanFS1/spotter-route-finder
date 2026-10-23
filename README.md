@@ -138,6 +138,13 @@ frontend/src/
 
 ## Deploy
 
-`render.yaml` builds the frontend and serves it from Django through WhiteNoise as one web service.
-Set `SECRET_KEY` and `ALLOWED_HOSTS` in the environment. The free tier sleeps when idle, so the first
-request after a pause can take about a minute.
+`render.yaml` is a Render Blueprint that builds the frontend and serves it from Django through
+WhiteNoise as one web service, so the app and API share an origin.
+
+1. On Render, choose New > Blueprint and select this repository.
+2. Apply the blueprint. It generates `SECRET_KEY` and sets `DEBUG=0`; no other secrets are needed
+   because every upstream service is keyless.
+3. Open the service URL once it reports healthy (`/api/health/`).
+
+The free tier sleeps when idle, so the first request after a pause can take about a minute; the
+frontend pings the health endpoint on load to wake it early.
