@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from domain.models import Weather
-from services.analysis import MAX_CHECKPOINTS_PER_ROUTE, TripError, TripRequest, analyze_trip
+from services.analysis import TripError, TripRequest, analyze_trip
 from services.heatmap import HOURS, MAX_POINTS, build_heatmap, corridor_points
 from services.routing.alternatives import build_routes
 
@@ -128,7 +128,6 @@ def test_too_many_checkpoints_is_a_clear_error():
     asia_scale = (-33.9, 151.2)
     with pytest.raises(TripError, match="Choose a larger interval"):
         analyze_trip(TripRequest(far, asia_scale, DEPART, 1000, 10), FakeRouting(), FakeWeather(), now=NOW)
-    assert MAX_CHECKPOINTS_PER_ROUTE == 400
 
 
 def test_weather_is_requested_once_for_all_routes():

@@ -9,8 +9,8 @@ from services.analysis import forecast_days_needed
 from services.weather.open_meteo import floor_hour
 
 HOURS = 49
-MAX_POINTS = 150
-BASE_SPACING_MI = 25.0
+MAX_POINTS = 110
+BASE_SPACING_MI = 30.0
 LATERAL_OFFSET_MI = 15.0
 
 

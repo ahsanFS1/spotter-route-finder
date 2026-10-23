@@ -4,13 +4,14 @@ from functools import lru_cache
 from django.conf import settings
 
 from services.geocoding.photon import PhotonGeocoder
+from services.routing.cached import CachedRouting
 from services.routing.osrm import OsrmProvider
 from services.weather.open_meteo import OpenMeteoProvider
 
 
 @lru_cache
-def routing() -> OsrmProvider:
-    return OsrmProvider(settings.OSRM_BASE_URL, settings.TRUCK_SPEED_FACTOR)
+def routing() -> CachedRouting:
+    return CachedRouting(OsrmProvider(settings.OSRM_BASE_URL, settings.TRUCK_SPEED_FACTOR))
 
 
 @lru_cache

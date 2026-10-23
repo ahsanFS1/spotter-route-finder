@@ -9,6 +9,8 @@ with a 0-48 hour forecast heatmap along the trip corridor.
 - Frontend: React + TypeScript + Vite, MapLibre GL for the map
 - Data (all keyless): OSRM routing, Photon geocoding, Open-Meteo hourly forecasts
 
+![Spotter Route Finder](docs/screenshot.png)
+
 Hosted app: _add URL after deploy_
 
 ## How it works

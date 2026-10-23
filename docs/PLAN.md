@@ -123,7 +123,7 @@ UX: form panel + results panel + full-height map. Route colors by identity; line
 shows risk via segmented gradient (per-segment risk coloring). Checkpoint markers colored by
 level with popup (ETA, weather values, level). Loading skeletons, error and empty states,
 keyboard-accessible, responsive down to tablet and phone width, WCAG AA contrast, `prefers-reduced-motion`.
-Design pass using the design-taste skill. Map fits bounds on result; selecting a card
+Map fits bounds on result; selecting a card
 highlights its route.
 
 ## 9. Testing strategy
@@ -175,7 +175,7 @@ highlights its route.
 
 ---
 
-# Revisions after review (these supersede earlier sections)
+# Revisions (these supersede earlier sections)
 
 Verified against the live APIs: Open-Meteo returns a list for multi-location requests and
 a single object for one location (normalize both); with `wind_speed_unit=mph` and

@@ -12,7 +12,7 @@ from domain.scoring import summarize_route
 from services.routing.alternatives import build_routes
 from services.weather.open_meteo import MAX_FORECAST_DAYS, weather_at
 
-MAX_CHECKPOINTS_PER_ROUTE = 400
+MAX_CHECKPOINTS_PER_ROUTE = 150  # keeps one trip within the free weather API's per-minute allowance
 GEOMETRY_GAP_MI = 0.2
 
 

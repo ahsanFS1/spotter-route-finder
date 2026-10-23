@@ -166,3 +166,34 @@ def test_photon_filters_countries_flips_coordinates_and_dedupes():
     results = PhotonGeocoder(session=StubSession(payload)).search("chi")
     assert [r["label"] for r in results] == ["Chicago, Illinois, US", "Springfield, Illinois, US"]
     assert results[0]["lat"] == 41.88 and results[0]["lng"] == -87.63
+
+
+def test_nearby_points_share_one_grid_cell_and_request():
+    session = StubSession([{"hourly": hourly()}])
+    provider = OpenMeteoProvider(session=session, cache=MemoryCache())
+    result = provider.fetch([(40.011, -90.012), (40.024, -89.987)], 1)  # both snap to (40.0, -90.0)
+    assert len(session.calls) == 1 and session.calls[0][1]["latitude"] == "40.00"
+    assert result[(40.011, -90.012)] is result[(40.024, -89.987)]
+
+
+def test_forecast_length_is_bucketed_for_cache_reuse():
+    session = StubSession({"hourly": hourly()})
+    provider = OpenMeteoProvider(session=session, cache=MemoryCache())
+    provider.fetch([(40.0, -90.0)], 2)
+    provider.fetch([(40.0, -90.0)], 4)
+    assert len(session.calls) == 1 and session.calls[0][1]["forecast_days"] == 4
+
+
+def test_provider_errors_are_user_safe(monkeypatch):
+    import requests
+
+    from services.http import ProviderError, get_json
+
+    class Down:
+        def get(self, url, params=None, timeout=None):
+            raise requests.exceptions.RetryError("too many 429 error responses ... secret-url?x=1")
+
+    with pytest.raises(ProviderError) as info:
+        get_json(Down(), "https://api.open-meteo.com/v1/forecast", {})
+    message = str(info.value)
+    assert "weather service" in message and "busy" in message and "http" not in message

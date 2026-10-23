@@ -22,7 +22,10 @@ const INITIAL: TripState = {
   fieldErrors: {},
 }
 
-/** Runs the route analysis and the forecast heatmap in parallel; the heatmap never blocks the results. */
+/**
+ * Runs the route analysis, then the forecast heatmap. They share one weather API with a per-minute
+ * allowance, so they are sequential; the results show as soon as the analysis finishes.
+ */
 export function useTripAnalysis() {
   const [state, setState] = useState<TripState>(INITIAL)
   const controller = useRef<AbortController | null>(null)
@@ -34,7 +37,12 @@ export function useTripAnalysis() {
     setState({ ...INITIAL, trip, busy: true, heatmapStatus: 'loading' })
 
     analyzeTrip(trip, ctl.signal)
-      .then((analysis) => setState((s) => ({ ...s, analysis, busy: false })))
+      .then((analysis) => {
+        setState((s) => ({ ...s, analysis, busy: false }))
+        return fetchHeatmap(trip, ctl.signal)
+          .then((heatmap) => setState((s) => ({ ...s, heatmap, heatmapStatus: 'ready' })))
+          .catch(() => !ctl.signal.aborted && setState((s) => ({ ...s, heatmapStatus: 'failed' })))
+      })
       .catch((err) => {
         if (ctl.signal.aborted) return
         setState((s) => ({
@@ -45,10 +53,6 @@ export function useTripAnalysis() {
           fieldErrors: err instanceof ApiError ? err.fields : {},
         }))
       })
-
-    fetchHeatmap(trip, ctl.signal)
-      .then((heatmap) => setState((s) => ({ ...s, heatmap, heatmapStatus: 'ready' })))
-      .catch(() => !ctl.signal.aborted && setState((s) => ({ ...s, heatmapStatus: 'failed' })))
   }, [])
 
   return { state, run }
