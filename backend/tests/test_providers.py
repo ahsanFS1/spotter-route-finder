@@ -114,17 +114,31 @@ def test_weather_at_without_series():
     assert weather_at(None, datetime.now(timezone.utc)) is None
 
 
+def encode_polyline6(points):
+    out, prev_lat, prev_lng = [], 0, 0
+    for lat, lng in points:
+        for value, prev in ((round(lat * 1e6), prev_lat), (round(lng * 1e6), prev_lng)):
+            delta = value - prev
+            delta = ~(delta << 1) if delta < 0 else delta << 1
+            while delta >= 0x20:
+                out.append(chr((0x20 | (delta & 0x1F)) + 63))
+                delta >>= 5
+            out.append(chr(delta + 63))
+        prev_lat, prev_lng = round(lat * 1e6), round(lng * 1e6)
+    return "".join(out)
+
+
 def osrm_route(distance_m=160934.0, duration=7200.0):
     return {
         "code": "Ok",
         "routes": [{
             "distance": distance_m,
             "duration": duration,
-            "geometry": {"coordinates": [[-100.0, 40.0], [-99.0, 40.0], [-98.0, 40.0]]},
-            "legs": [{"steps": [
+            "geometry": encode_polyline6([(40.0, -100.0), (40.0, -99.0), (40.0, -98.0)]),
+            "legs": [
                 {"distance": distance_m / 2, "duration": duration / 2},
                 {"distance": distance_m / 2, "duration": duration / 2},
-            ]}],
+            ],
         }],
     }
 
