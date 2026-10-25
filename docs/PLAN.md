@@ -154,7 +154,6 @@ highlights its route.
 ## 12. Documentation and walkthrough
 - README: overview, screenshot, architecture diagram, setup, env vars, API, rule
   interpretations, assumptions and limitations, how to run tests, deployment.
-- `docs/WALKTHROUGH.md`: 8-minute Loom script with timeline.
 
 ## 13. Milestones
 1. Scaffold, tooling, CI, health endpoint.
