@@ -3,7 +3,9 @@ from functools import lru_cache
 
 from django.conf import settings
 
+from services.geocoding.open_meteo import OpenMeteoGeocoder
 from services.geocoding.photon import PhotonGeocoder
+from services.geocoding.resilient import ResilientGeocoder
 from services.routing.cached import CachedRouting
 from services.routing.osrm import OsrmProvider
 from services.weather.open_meteo import OpenMeteoProvider
@@ -15,8 +17,8 @@ def routing() -> CachedRouting:
 
 
 @lru_cache
-def geocoder() -> PhotonGeocoder:
-    return PhotonGeocoder(settings.PHOTON_BASE_URL)
+def geocoder() -> ResilientGeocoder:
+    return ResilientGeocoder(PhotonGeocoder(settings.PHOTON_BASE_URL), OpenMeteoGeocoder())
 
 
 @lru_cache

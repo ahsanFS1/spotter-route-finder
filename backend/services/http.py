@@ -11,6 +11,7 @@ DEFAULT_TIMEOUT_S = 25
 logger = logging.getLogger(__name__)
 
 SERVICE_NAMES = {
+    "geocoding-api.open-meteo.com": "The place search service",
     "open-meteo.com": "The weather service",
     "project-osrm.org": "The routing service",
     "komoot.io": "The place search service",
@@ -29,11 +30,11 @@ def _service_name(url: str) -> str:
     return next((name for domain, name in SERVICE_NAMES.items() if host.endswith(domain)), "A data service")
 
 
-def build_session() -> requests.Session:
+def build_session(retries: int = 3, backoff: float = 2.0) -> requests.Session:
     session = requests.Session()
     retry = Retry(
-        total=3,
-        backoff_factor=2.0,  # 0s, 4s, 8s between attempts; Retry-After is honoured when sent
+        total=retries,
+        backoff_factor=backoff,  # default 0s, 4s, 8s between attempts; Retry-After is honoured when sent
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=("GET",),
     )

@@ -211,3 +211,58 @@ def test_provider_errors_are_user_safe(monkeypatch):
         get_json(Down(), "https://api.open-meteo.com/v1/forecast", {})
     message = str(info.value)
     assert "weather service" in message and "busy" in message and "http" not in message
+
+
+def test_open_meteo_geocoder_filters_countries_and_labels():
+    from services.geocoding.open_meteo import OpenMeteoGeocoder
+    payload = {"results": [
+        {"name": "Chicago", "admin1": "Illinois", "country_code": "US", "latitude": 41.88, "longitude": -87.63},
+        {"name": "Chicago", "admin1": "Illinois", "country_code": "US", "latitude": 41.9, "longitude": -87.7},
+        {"name": "Chicago", "country_code": "FR", "latitude": 48.8, "longitude": 2.3},
+    ]}
+    assert OpenMeteoGeocoder(session=StubSession(payload)).search("chi") == [
+        {"label": "Chicago, Illinois, US", "lat": 41.88, "lng": -87.63}
+    ]
+    assert OpenMeteoGeocoder(session=StubSession({})).search("zzz") == []
+
+
+class _Geo:
+    def __init__(self, result=None, error=None):
+        self.result, self.error, self.calls = result or [], error, 0
+
+    def search(self, query, limit=6):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        return self.result
+
+
+def _resilient(primary, fallback):
+    from uuid import uuid4
+
+    from django.core.cache.backends.locmem import LocMemCache
+    from services.geocoding.resilient import ResilientGeocoder
+    return ResilientGeocoder(primary, fallback, cache=LocMemCache(uuid4().hex, {}))  # named caches are shared
+
+
+def test_geocoder_falls_back_when_primary_fails_and_caches():
+    from services.http import ProviderError
+    primary, fallback = _Geo(error=ProviderError("down")), _Geo([{"label": "A", "lat": 1, "lng": 2}])
+    geo = _resilient(primary, fallback)
+    assert geo.search("Chicago")[0]["label"] == "A"
+    assert geo.search("  chicago ")[0]["label"] == "A"  # same normalised query is served from the cache
+    assert primary.calls == 1 and fallback.calls == 1
+
+
+def test_geocoder_raises_primary_error_when_both_fail():
+    from services.http import ProviderError
+    geo = _resilient(_Geo(error=ProviderError("primary down")), _Geo(error=ProviderError("fallback down")))
+    with pytest.raises(ProviderError, match="primary down"):
+        geo.search("Chicago")
+
+
+def test_geocoder_tries_fallback_on_empty_primary_but_does_not_cache_empty():
+    primary, fallback = _Geo([]), _Geo([])
+    geo = _resilient(primary, fallback)
+    assert geo.search("nowhere") == [] and geo.search("nowhere") == []
+    assert primary.calls == 2 and fallback.calls == 2

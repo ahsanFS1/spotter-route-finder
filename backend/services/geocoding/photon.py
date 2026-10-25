@@ -2,15 +2,16 @@
 from services.http import build_session, get_json
 
 ALLOWED_COUNTRIES = {"US", "CA", "MX"}
+TIMEOUT_S = 8  # autocomplete should fail fast; the caller has a fallback
 
 
 class PhotonGeocoder:
     def __init__(self, base_url: str = "https://photon.komoot.io", session=None):
         self.base_url = base_url.rstrip("/")
-        self.session = session or build_session()
+        self.session = session or build_session(retries=1, backoff=0.5)
 
     def search(self, query: str, limit: int = 6) -> list[dict]:
-        data = get_json(self.session, f"{self.base_url}/api/", {"q": query, "limit": limit * 2, "lang": "en"})
+        data = get_json(self.session, f"{self.base_url}/api/", {"q": query, "limit": limit * 2, "lang": "en"}, timeout=TIMEOUT_S)
         results, seen = [], set()
         for feature in data.get("features", []):
             props = feature.get("properties", {})
