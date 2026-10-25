@@ -22,7 +22,7 @@ Hosted app: _add URL after deploy_
    app shows those and says so.
 2. **Checkpoints.** Each route is sampled at the start, every 10, 25 or 50 miles, and the end. The
    ETA at each checkpoint is the departure time plus the elapsed time interpolated along the route's
-   steps.
+   legs (one per waypoint pair; time is spread evenly within a leg).
 3. **Weather.** Open-Meteo hourly forecasts are fetched in batches for every checkpoint, and the
    hour nearest the ETA is used. Wind is sustained 10 m wind in mph, rain is rain plus showers in
    in/hr, snow is snowfall in in/hr.
