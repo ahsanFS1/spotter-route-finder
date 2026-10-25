@@ -41,6 +41,10 @@ class FakeRouting:
         return [straight_route(origin, dest, bulge_mi=b, mph=60 - i * 2) for i, b in zip(range(self.alternatives), (0, 35, -35))]
 
 
+# Fixed so tests do not depend on today's date; matches NOW in test_analysis.
+FORECAST_START = datetime(2026, 10, 23, tzinfo=timezone.utc)
+
+
 class FakeWeather:
     """Constant weather, optionally varying by point and with an end to the forecast."""
 
@@ -52,7 +56,7 @@ class FakeWeather:
 
     def fetch(self, points, forecast_days):
         self.requests.append((len(points), forecast_days))
-        start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = FORECAST_START
         out = {}
         for p in points:
             series = {}
